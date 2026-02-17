@@ -45,7 +45,8 @@ jobs:
         run: |
           gem install fastlane
           fastlane pilot upload \
-            --ipa build/ios/ipa/Runner.ipa \
+            --ipa build/ios/ipa/*.ipa \
             --api_key_path AuthKey.p8 \
             --api_key_id ${{ env.APP_STORE_CONNECT_KEY_ID }} \
             --issuer_id ${{ env.APP_STORE_CONNECT_ISSUER_ID }}
+  
