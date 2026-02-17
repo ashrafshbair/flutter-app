@@ -48,6 +48,5 @@ jobs:
           gem install fastlane
           fastlane pilot upload \
             --ipa build/ios/ipa/*.ipa \
-            --api_key_path AuthKey.p8 \
-            --api_key_id ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }} \
-            --issuer_id ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+            --api_key_path api_key.json
+
