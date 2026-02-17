@@ -1,4 +1,4 @@
-name: Build & Upload Flutter iOS App
+name: Build & Upload iOS App to TestFlight
 
 on:
   push:
@@ -9,53 +9,50 @@ on:
 jobs:
   build_ios:
     runs-on: macos-latest
-
     env:
+      # App Store Connect API secrets
       APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
       APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
       APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
 
     steps:
-      # Checkout repository
-      - name: Checkout code
-        uses: actions/checkout@v4
+      # 1️⃣ Checkout code
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      # Setup Flutter (latest stable - supports Dart 3.10+)
+      # 2️⃣ Set up Flutter
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          flutter-version: "3.13.6"
 
-      # Clean project
-      - name: Clean project
-        run: flutter clean
-
-      # Get dependencies
+      # 3️⃣ Install Flutter dependencies
       - name: Install dependencies
         run: flutter pub get
 
-      # Create App Store Connect API key file
-      - name: Create API key file
+      # 4️⃣ Increment build number
+      - name: Increment build number
+        id: version
         run: |
-          echo "$APP_STORE_CONNECT_PRIVATE_KEY" > AuthKey.p8
+          BUILD_NUMBER=$(grep 'version:' pubspec.yaml | sed 's/.*+\([0-9]*\)/\1/')
+          BUILD_NUMBER=$((BUILD_NUMBER + 1))
+          sed -i '' -E "s/version: ([0-9]+\.[0-9]+\.[0-9]+)\+[0-9]+/version: \1+$BUILD_NUMBER/" pubspec.yaml
+          echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
 
-      # Build IPA for App Store
-      - name: Build iOS IPA
-        run: flutter build ipa --export-method app-store
+      # 5️⃣ Build iOS Release IPA
+      - name: Build iOS Release IPA
+        run: flutter build ipa --export-method app-store --build-number ${{ steps.version.outputs.build_number }}
 
-      # Upload IPA as artifact (downloadable)
-      - name: Upload IPA artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Runner.ipa
-          path: build/ios/ipa/*.ipa
+      # 6️⃣ Create .p8 key file from secret
+      - name: Create App Store Connect API key file
+        run: echo "${{ env.APP_STORE_CONNECT_PRIVATE_KEY }}" | base64 --decode > AuthKey.p8
 
-      # Upload to App Store Connect
-      - name: Upload to App Store Connect
+      # 7️⃣ Upload IPA to TestFlight
+      - name: Upload to TestFlight
         run: |
           gem install fastlane
           fastlane pilot upload \
+            --ipa build/ios/ipa/Runner.ipa \
             --api_key_path AuthKey.p8 \
-            --api_key_id $APP_STORE_CONNECT_KEY_ID \
-            --issuer_id $APP_STORE_CONNECT_ISSUER_ID \
-            --ipa build/ios/ipa/*.ipa
+            --api_key_id ${{ env.APP_STORE_CONNECT_KEY_ID }} \
+            --issuer_id ${{ env.APP_STORE_CONNECT_ISSUER_ID }}
