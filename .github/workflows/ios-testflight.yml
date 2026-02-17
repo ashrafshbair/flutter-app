@@ -10,27 +10,22 @@ jobs:
   build_ios:
     runs-on: macos-latest
     env:
-      # App Store Connect API secrets
       APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
       APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
       APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
 
     steps:
-      # 1️⃣ Checkout code
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # 2️⃣ Set up Flutter
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.13.6"
 
-      # 3️⃣ Install Flutter dependencies
       - name: Install dependencies
         run: flutter pub get
 
-      # 4️⃣ Increment build number
       - name: Increment build number
         id: version
         run: |
@@ -39,15 +34,12 @@ jobs:
           sed -i '' -E "s/version: ([0-9]+\.[0-9]+\.[0-9]+)\+[0-9]+/version: \1+$BUILD_NUMBER/" pubspec.yaml
           echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
 
-      # 5️⃣ Build iOS Release IPA
       - name: Build iOS Release IPA
         run: flutter build ipa --export-method app-store --build-number ${{ steps.version.outputs.build_number }}
 
-      # 6️⃣ Create .p8 key file from secret
       - name: Create App Store Connect API key file
         run: echo "${{ env.APP_STORE_CONNECT_PRIVATE_KEY }}" | base64 --decode > AuthKey.p8
 
-      # 7️⃣ Upload IPA to TestFlight
       - name: Upload to TestFlight
         run: |
           gem install fastlane
