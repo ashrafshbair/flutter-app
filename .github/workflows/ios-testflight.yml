@@ -9,10 +9,6 @@ on:
 jobs:
   build_ios:
     runs-on: macos-latest
-    env:
-      APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
-      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
 
     steps:
       - name: Checkout repository
@@ -21,11 +17,15 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-           flutter-version: "3.41.1"
-           channel: stable
+          flutter-version: "3.41.1"
+          channel: stable
 
       - name: Install dependencies
         run: flutter pub get
+
+      - name: Decode App Store Connect API key
+        run: |
+          echo "${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}" | base64 --decode > AuthKey.p8
 
       - name: Increment build number
         id: version
@@ -35,11 +35,13 @@ jobs:
           sed -i '' -E "s/version: ([0-9]+\.[0-9]+\.[0-9]+)\+[0-9]+/version: \1+$BUILD_NUMBER/" pubspec.yaml
           echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
 
-      - name: Build iOS Release IPA
-        run: flutter build ipa --export-method app-store --build-number ${{ steps.version.outputs.build_number }}
-
-      - name: Create App Store Connect API key file
-        run: echo "${{ env.APP_STORE_CONNECT_PRIVATE_KEY }}" | base64 --decode > AuthKey.p8
+      - name: Build iOS IPA (Automatic Signing)
+        run: |
+          flutter build ipa \
+            --release \
+            --export-method app-store \
+            --build-number ${{ steps.version.outputs.build_number }} \
+            --no-codesign
 
       - name: Upload to TestFlight
         run: |
@@ -47,6 +49,5 @@ jobs:
           fastlane pilot upload \
             --ipa build/ios/ipa/*.ipa \
             --api_key_path AuthKey.p8 \
-            --api_key_id ${{ env.APP_STORE_CONNECT_KEY_ID }} \
-            --issuer_id ${{ env.APP_STORE_CONNECT_ISSUER_ID }}
-  
+            --api_key_id ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }} \
+            --issuer_id ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
