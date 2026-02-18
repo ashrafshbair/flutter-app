@@ -39,7 +39,7 @@ jobs:
       - name: Build IPA
         run: |
           cd ios
-          xcodebuild \
+            xcodebuild \
             -workspace Runner.xcworkspace \
             -scheme Runner \
             -configuration Release \
