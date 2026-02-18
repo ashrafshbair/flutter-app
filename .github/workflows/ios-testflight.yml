@@ -40,6 +40,7 @@ jobs:
             -archivePath build/Runner.xcarchive \
             archive \
             -allowProvisioningUpdates
+            DEVELOPMENT_TEAM=47U3PW44YA
 
       - name: Export IPA for App Store
         run: |
