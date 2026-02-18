@@ -30,7 +30,7 @@ jobs:
           mkdir -p /tmp/certs
           echo "${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}" | tr -d '\r' > /tmp/certs/AuthKey.p8
 
-      - name: Build IPA
+      - name: Build IPA Archive
         run: |
           cd ios
           xcodebuild \
@@ -38,12 +38,12 @@ jobs:
             -scheme Runner \
             -configuration Release \
             -archivePath build/Runner.xcarchive \
+            -destination "generic/platform=iOS" \
             archive \
             -allowProvisioningUpdates \
             -authenticationKeyID ${{ secrets.APP_STORE_CONNECT_KEY_ID }} \
             -authenticationKeyIssuerID ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }} \
-            -authenticationKeyPath /tmp/certs/AuthKey.p8 \
-            DEVELOPMENT_TEAM=${{ secrets.APPLE_TEAM_ID }}
+            -authenticationKeyPath /tmp/certs/AuthKey.p8
 
       - name: Export IPA
         run: |
@@ -52,11 +52,9 @@ jobs:
             -archivePath build/Runner.xcarchive \
             -exportPath build/Runner.ipa \
             -exportOptionsPlist ExportOptions.plist \
-            -allowProvisioningUpdates \
             -authenticationKeyID ${{ secrets.APP_STORE_CONNECT_KEY_ID }} \
             -authenticationKeyIssuerID ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }} \
-            -authenticationKeyPath /tmp/certs/AuthKey.p8 \
-            DEVELOPMENT_TEAM=${{ secrets.APPLE_TEAM_ID }}
+            -authenticationKeyPath /tmp/certs/AuthKey.p8
 
       - name: Upload to TestFlight
         run: |
