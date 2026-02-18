@@ -25,6 +25,11 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Debug keys
+        run: |
+          echo "Key ID: '${{ secrets.APP_STORE_CONNECT_KEY_ID }}'"
+          echo "Issuer ID: '${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}'"
+
       - name: Prepare iOS certificate
         run: |
           mkdir -p /tmp/certs
