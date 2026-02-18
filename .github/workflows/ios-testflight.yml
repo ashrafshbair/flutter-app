@@ -1,4 +1,4 @@
-name: Build iOS IPA
+name: Build and Upload iOS IPA
 
 on:
   push:
@@ -16,7 +16,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.41.1'
-          channel: ${{ secrets.FLUTTER_CHANNEL }}
+          channel: stable
 
       # Restore dependencies
       - name: Flutter pub get
@@ -26,17 +26,19 @@ jobs:
       - name: Setup App Store Connect API Key
         run: |
           mkdir -p /tmp/certs
-          echo "${{ secrets.APP_STORE_PRIVATE_KEY }}" > /tmp/certs/AuthKey.p8
+          echo "${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}" > /tmp/certs/AuthKey.p8
 
-      # Build IPA
+      # Build IPA بدون code signing
       - name: Build iOS IPA
         run: |
           cd ios
           flutter clean
-          flutter build ipa --release \
-            --export-options-plist=ExportOptions.plist \
-            --no-codesign
-          
+          flutter build ipa --release --no-codesign --export-options-plist=ExportOptions.plist
+
+      # Archive باستخدام xcodebuild + App Store Connect API Key
+      - name: Archive with xcodebuild
+        run: |
+          cd ios
           xcodebuild \
             -workspace Runner.xcworkspace \
             -scheme Runner \
@@ -44,6 +46,28 @@ jobs:
             -archivePath build/Runner.xcarchive \
             archive \
             -allowProvisioningUpdates \
-            -authenticationKeyID ${{ secrets.APP_STORE_KEY_ID }} \
-            -authenticationKeyIssuerID ${{ secrets.APP_STORE_ISSUER_ID }} \
+            -authenticationKeyID ${{ secrets.APP_STORE_CONNECT_KEY_ID }} \
+            -authenticationKeyIssuerID ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }} \
             -authenticationKeyPath /tmp/certs/AuthKey.p8
+
+      # Export IPA
+      - name: Export IPA
+        run: |
+          cd ios
+          xcodebuild -exportArchive \
+            -archivePath build/Runner.xcarchive \
+            -exportOptionsPlist ExportOptions.plist \
+            -exportPath build
+
+      # Upload IPA to App Store Connect
+      - name: Upload to App Store Connect
+        env:
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          API_KEY_PATH: /tmp/certs/AuthKey.p8
+        run: |
+          xcrun altool --upload-app \
+            -f ios/build/Runner.ipa \
+            -t ios \
+            --apiKey $API_KEY_ID \
+            --apiIssuer $API_ISSUER_ID
