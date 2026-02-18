@@ -10,28 +10,32 @@ jobs:
     runs-on: macos-latest
 
     steps:
+      # 1️⃣ Checkout code
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 2️⃣ Setup Flutter
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.41.1'
           channel: 'stable'
 
+      # 3️⃣ Install dependencies
       - name: Install dependencies
         run: flutter pub get
 
-      # 🔐 Create API Key file
+      # 4️⃣ Create absolute path for App Store Connect API Key
       - name: Create App Store Connect API Key
         run: |
-          echo "${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}" > AuthKey.p8
+          mkdir -p /tmp/certs
+          echo "${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}" > /tmp/certs/AuthKey.p8
 
-      # 🏗 Build iOS (without signing)
+      # 5️⃣ Build Flutter iOS app (no codesign yet)
       - name: Build iOS
         run: flutter build ios --release --no-codesign
 
-      # 📦 Archive with signing using API Key
+      # 6️⃣ Archive with signing using API Key
       - name: Archive iOS
         run: |
           cd ios
@@ -44,9 +48,9 @@ jobs:
             -allowProvisioningUpdates \
             -authenticationKeyID ${{ secrets.APP_STORE_CONNECT_KEY_ID }} \
             -authenticationKeyIssuerID ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }} \
-            -authenticationKeyPath ../AuthKey.p8
+            -authenticationKeyPath /tmp/certs/AuthKey.p8
 
-      # 📤 Export IPA
+      # 7️⃣ Export IPA
       - name: Export IPA
         run: |
           cd ios
@@ -55,7 +59,7 @@ jobs:
             -exportOptionsPlist ExportOptions.plist \
             -exportPath build
 
-      # 🚀 Upload to TestFlight
+      # 8️⃣ Upload to TestFlight
       - name: Upload to TestFlight
         uses: apple-actions/upload-testflight-build@v1
         with:
