@@ -38,7 +38,8 @@ jobs:
             -scheme Runner \
             -configuration Release \
             -archivePath build/Runner.xcarchive \
-            archive
+            archive \
+            -allowProvisioningUpdates
 
       - name: Export IPA for App Store
         run: |
