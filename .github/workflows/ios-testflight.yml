@@ -1,30 +1,64 @@
-name: iOS TestFlight
+name: iOS Build & Upload TestFlight
 
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
   build:
     runs-on: macos-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: subosito/flutter-action@v2
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.41.1'
-          channel: 'stable'
+          flutter-version: '3.16.0'
 
-      - run: flutter pub get
+      - name: Install dependencies
+        run: flutter pub get
 
-      - run: flutter build ipa --release
+      # 🔐 Create API Key file
+      - name: Create App Store Connect API Key
+        run: |
+          echo "${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}" > AuthKey.p8
 
+      # 🏗 Build iOS (without signing)
+      - name: Build iOS
+        run: flutter build ios --release --no-codesign
+
+      # 📦 Archive with signing using API Key
+      - name: Archive iOS
+        run: |
+          cd ios
+          xcodebuild \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -archivePath build/Runner.xcarchive \
+            archive \
+            -allowProvisioningUpdates \
+            -authenticationKeyID ${{ secrets.APP_STORE_CONNECT_KEY_ID }} \
+            -authenticationKeyIssuerID ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }} \
+            -authenticationKeyPath ../AuthKey.p8
+
+      # 📤 Export IPA
+      - name: Export IPA
+        run: |
+          cd ios
+          xcodebuild -exportArchive \
+            -archivePath build/Runner.xcarchive \
+            -exportOptionsPlist ExportOptions.plist \
+            -exportPath build
+
+      # 🚀 Upload to TestFlight
       - name: Upload to TestFlight
         uses: apple-actions/upload-testflight-build@v1
         with:
-          app-path: build/ios/ipa/*.ipa
+          app-path: ios/build/*.ipa
           issuer-id: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-          api-key-id: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          api-key-id: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           api-private-key: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
