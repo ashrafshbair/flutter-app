@@ -39,16 +39,12 @@ jobs:
       - name: Build IPA
         run: |
           cd ios
-            xcodebuild \
+          xcodebuild \
             -workspace Runner.xcworkspace \
             -scheme Runner \
             -configuration Release \
             -archivePath build/Runner.xcarchive \
-            archive \
-            -allowProvisioningUpdates \
-            -authenticationKeyID ${{ secrets.APP_STORE_CONNECT_KEY_ID }} \
-            -authenticationKeyIssuerID ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }} \
-            -authenticationKeyPath /tmp/certs/AuthKey.p8
+            archive
 
       - name: Export IPA
         run: |
@@ -57,7 +53,6 @@ jobs:
             -archivePath build/Runner.xcarchive \
             -exportPath build/Runner.ipa \
             -exportOptionsPlist ExportOptions.plist \
-            -allowProvisioningUpdates \
             -authenticationKeyID ${{ secrets.APP_STORE_CONNECT_KEY_ID }} \
             -authenticationKeyIssuerID ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }} \
             -authenticationKeyPath /tmp/certs/AuthKey.p8
