@@ -1,73 +1,49 @@
-name: iOS Build & Upload
+name: Build iOS IPA
 
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
-  build-ios:
+  build_ios:
     runs-on: macos-latest
-    env:
-      FLUTTER_ROOT: /Users/runner/hostedtoolcache/flutter/stable-3.41.1-arm64
-      PUB_CACHE: /Users/runner/.pub-cache
-
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      - name: Set up Flutter
+      # تثبيت Flutter
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.41.1'
-          channel: 'stable'
+          channel: ${{ secrets.FLUTTER_CHANNEL }}
 
-      - name: Install dependencies
+      # Restore dependencies
+      - name: Flutter pub get
         run: flutter pub get
 
-      - name: Debug keys
-        run: |
-          echo "Key ID: '${{ secrets.APP_STORE_CONNECT_KEY_ID }}'"
-          echo "Issuer ID: '${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}'"
-          
-
-      - name: Prepare iOS certificate
+      # جهز ملف AuthKey.p8 من secret
+      - name: Setup App Store Connect API Key
         run: |
           mkdir -p /tmp/certs
-          echo "${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}" | tr -d '\r' > /tmp/certs/AuthKey.p8
+          echo "${{ secrets.APP_STORE_PRIVATE_KEY }}" > /tmp/certs/AuthKey.p8
 
-      - name: Build IPA
+      # Build IPA
+      - name: Build iOS IPA
         run: |
           cd ios
-            xcodebuild \
+          flutter clean
+          flutter build ipa --release \
+            --export-options-plist=ExportOptions.plist \
+            --no-codesign
+          
+          xcodebuild \
             -workspace Runner.xcworkspace \
             -scheme Runner \
             -configuration Release \
             -archivePath build/Runner.xcarchive \
             archive \
             -allowProvisioningUpdates \
-            -authenticationKeyID ${{ secrets.APP_STORE_CONNECT_KEY_ID }} \
-            -authenticationKeyIssuerID ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }} \
+            -authenticationKeyID ${{ secrets.APP_STORE_KEY_ID }} \
+            -authenticationKeyIssuerID ${{ secrets.APP_STORE_ISSUER_ID }} \
             -authenticationKeyPath /tmp/certs/AuthKey.p8
-
-      - name: Export IPA
-        run: |
-          cd ios
-          xcodebuild -exportArchive \
-            -archivePath build/Runner.xcarchive \
-            -exportPath build/Runner.ipa \
-            -exportOptionsPlist ExportOptions.plist \
-            -allowProvisioningUpdates \
-            -authenticationKeyID ${{ secrets.APP_STORE_CONNECT_KEY_ID }} \
-            -authenticationKeyIssuerID ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }} \
-            -authenticationKeyPath /tmp/certs/AuthKey.p8
-
-      - name: Upload to TestFlight
-        run: |
-          cd ios
-          xcrun altool \
-            --upload-app \
-            -f build/Runner.ipa \
-            -t ios \
-            -apiKey ${{ secrets.APP_STORE_CONNECT_KEY_ID }} \
-            -apiIssuer ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
