@@ -1,101 +1,30 @@
-name: Build & Upload iOS App to TestFlight
+name: iOS TestFlight
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch:
 
 jobs:
-  build_ios:
+  build:
     runs-on: macos-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      # -------------------------
-      # Flutter Setup
-      # -------------------------
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.41.1"
-          channel: stable
+          flutter-version: '3.41.1'
+          channel: 'stable'
 
-      - name: Flutter version
-        run: flutter --version
+      - run: flutter pub get
 
-      - name: Install dependencies
-        run: flutter pub get
+      - run: flutter build ipa --release
 
-      # -------------------------
-      # Install Signing Certificate
-      # -------------------------
-      - name: Install signing certificate
-        run: |
-          echo "${{ secrets.IOS_CERTIFICATE }}" | base64 --decode > certificate.p12
-          security create-keychain -p "" build.keychain
-          security import certificate.p12 -k build.keychain -T /usr/bin/codesign
-          security list-keychains -d user -s build.keychain
-          security unlock-keychain -p "" build.keychain
-
-      # -------------------------
-      # Install Provisioning Profile
-      # -------------------------
-      - name: Install provisioning profile
-        run: |
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          echo "${{ secrets.IOS_PROVISIONING_PROFILE }}" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
-
-      # -------------------------
-      # Increment build number
-      # -------------------------
-      - name: Increment build number
-        id: version
-        run: |
-          BUILD_NUMBER=$(grep 'version:' pubspec.yaml | sed 's/.*+\([0-9]*\)/\1/')
-          BUILD_NUMBER=$((BUILD_NUMBER + 1))
-          sed -i '' -E "s/version: ([0-9]+\.[0-9]+\.[0-9]+)\+[0-9]+/version: \1+$BUILD_NUMBER/" pubspec.yaml
-          echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
-
-      # -------------------------
-      # Build IPA (SIGNED)
-      # -------------------------
-      - name: Build iOS IPA
-        run: |
-          flutter build ipa \
-            --release \
-            --export-method app-store \
-            --build-number ${{ steps.version.outputs.build_number }}
-
-      # -------------------------
-      # Debug: show ipa file
-      # -------------------------
-      - name: List IPA files
-        run: ls -R build/ios/ipa
-
-      # -------------------------
-      # Create API key JSON
-      # -------------------------
-      - name: Create App Store Connect API key JSON
-        run: |
-          echo "${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}" | base64 --decode > AuthKey.p8
-          cat > api_key.json <<EOF
-          {
-            "key_id": "${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}",
-            "issuer_id": "${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}",
-            "key": "$(cat AuthKey.p8)"
-          }
-          EOF
-
-      # -------------------------
-      # Upload to TestFlight
-      # -------------------------
       - name: Upload to TestFlight
-        run: |
-          export FASTLANE_OPT_OUT_USAGE=1
-          gem install fastlane
-          fastlane pilot upload \
-            --ipa build/ios/ipa/*.ipa \
-            --api_key_path api_key.json
+        uses: apple-actions/upload-testflight-build@v1
+        with:
+          app-path: build/ios/ipa/*.ipa
+          issuer-id: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          api-key-id: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          api-private-key: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
