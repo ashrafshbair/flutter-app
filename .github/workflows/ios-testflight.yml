@@ -28,7 +28,7 @@ jobs:
       - name: Prepare iOS certificate
         run: |
           mkdir -p /tmp/certs
-          echo "${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}" | tr -d '\r' > /tmp/certs/AuthKey.p8
+          echo "${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}" | tr -d '\r' > /tmp/certs/AuthKey.p8 
 
       - name: Build IPA
         run: |
